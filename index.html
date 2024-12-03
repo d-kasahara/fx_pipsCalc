@@ -59,15 +59,16 @@
     </style>
     <script>
         async function fetchExchangeRates() {
-            // Google FinanceのAPIの代替として為替レートを取得する関数
-            const rates = {
-                "USDJPY": 149.00,
-                "EURUSD": 1.05,
-                "GBPUSD": 1.21,
-                "AUDUSD": 0.68,
-                "NZDUSD": 0.62
-            };
-            return rates;
+            try {
+                const response = await fetch('https://api.aoikujira.com/kawase/json/');
+                if (!response.ok) {
+                    throw new Error('為替レートの取得に失敗しました');
+                }
+                return await response.json();
+            } catch (error) {
+                alert(error.message);
+                return null;
+            }
         }
 
         async function calculateProfit() {
@@ -80,6 +81,8 @@
                 const lotPerCurrency = parseInt(document.getElementById('lot_per_currency').value);
 
                 const rates = await fetchExchangeRates();
+                if (!rates) return;
+
                 const pairRate = parseFloat(rates[currencyPair]);
                 const usdJpyRate = parseFloat(rates['USDJPY']);
 

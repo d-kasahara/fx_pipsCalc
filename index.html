@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通貨ペア利益計算ツール</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #0056b3;
+        }
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #004494;
+        }
+        .results {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .results p {
+            margin: 5px 0;
+        }
+    </style>
+    <script>
+        async function fetchExchangeRates() {
+            // Google FinanceのAPIの代替として為替レートを取得する関数
+            const rates = {
+                "USDJPY": 149.00,
+                "EURUSD": 1.05,
+                "GBPUSD": 1.21,
+                "AUDUSD": 0.68,
+                "NZDUSD": 0.62
+            };
+            return rates;
+        }
+
+        async function calculateProfit() {
+            try {
+                const currencyPair = document.getElementById('currency_pair').value;
+                const initialFunds = parseFloat(document.getElementById('initial_funds').value);
+                const leverage = parseInt(document.getElementById('leverage').value);
+                const pips = parseInt(document.getElementById('pips').value);
+                const lotLimit = parseInt(document.getElementById('lot_limit').value);
+                const lotPerCurrency = parseInt(document.getElementById('lot_per_currency').value);
+
+                const rates = await fetchExchangeRates();
+                const pairRate = parseFloat(rates[currencyPair]);
+                const usdJpyRate = parseFloat(rates['USDJPY']);
+
+                // 入力とレートの検証
+                if (isNaN(pairRate) || isNaN(usdJpyRate)) {
+                    alert('有効な為替レートを取得できませんでした。');
+                    return;
+                }
+
+                // ドルでの取引量を計算
+                const tradingVolume = (initialFunds * leverage) / pairRate;
+
+                // 初回ロットを計算
+                const initialLot = Math.min(tradingVolume / lotPerCurrency, lotLimit);
+
+                // 日本円での利益を計算
+                let profit;
+                if (currencyPair === "USDJPY") {
+                    profit = pips * initialLot * lotPerCurrency / pairRate;
+                } else {
+                    profit = pips * initialLot * lotPerCurrency * usdJpyRate / pairRate;
+                }
+
+                // 結果を表示
+                document.getElementById('trading_volume').innerText = `取引量 (USD): ${tradingVolume.toFixed(2)}`;
+                document.getElementById('initial_lot').innerText = `初回ロット: ${initialLot.toFixed(2)}`;
+                document.getElementById('profit').innerText = `利益額 (JPY): ${profit.toFixed(2)}`;
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>通貨ペア利益計算ツール</h1>
+    <form onsubmit="event.preventDefault(); calculateProfit();">
+        <label for="currency_pair">通貨ペア:</label>
+        <select id="currency_pair" required>
+            <option value="USDJPY">USDJPY</option>
+            <option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option>
+            <option value="AUDUSD">AUDUSD</option>
+            <option value="NZDUSD">NZDUSD</option>
+        </select>
+
+        <label for="initial_funds">初期資金 (JPY):</label>
+        <input type="number" id="initial_funds" required><br>
+
+        <label for="leverage">レバレッジ:</label>
+        <input type="number" id="leverage" required><br>
+
+        <label for="pips">獲得pips:</label>
+        <input type="number" id="pips" required><br>
+
+        <label for="lot_limit">ロット上限:</label>
+        <input type="number" id="lot_limit" required><br>
+
+        <label for="lot_per_currency">ロット単位 (通貨):</label>
+        <input type="number" id="lot_per_currency" required><br>
+
+        <button type="submit">計算する</button>
+    </form>
+
+    <div class="results">
+        <h2>計算結果</h2>
+        <p id="trading_volume">取引量 (USD): -</p>
+        <p id="initial_lot">初回ロット: -</p>
+        <p id="profit">利益額 (JPY): -</p>
+    </div>
+</body>
+</html>

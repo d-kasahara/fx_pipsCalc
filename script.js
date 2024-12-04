@@ -1,27 +1,27 @@
 async function fetchExchangeRates(baseCurrency) {
     const API_KEY = '7c489c93947d3e1bd16d63b86906201d'; // あなたのAPIキー
     try {
-        const response = await fetch(`http://api.exchangerate.host/live?access_key=${API_KEY}&source=USD&currencies=JPY`);
+        const response = await fetch(`http://api.exchangerate.host/live?access_key=${API_KEY}&source=USD&currencies=JPY,EUR`);
         if (!response.ok) {
             throw new Error('為替レートの取得に失敗しました');
         }
         const data = await response.json();
         console.log("API response:", data);
 
-        if (!data.quotes || !data.quotes['USDJPY']) {
+        if (!data.quotes || !data.quotes['USDJPY'] || !data.quotes['USDEUR']) {
             throw new Error('為替レートデータが不足しています');
         }
 
-        // USDJPYのレートを直接返す
         return {
-            pairRate: data.quotes['USDJPY'],
-            usdJpyRate: data.quotes['USDJPY']
+            usdJpyRate: data.quotes['USDJPY'],
+            usdEurRate: data.quotes['USDEUR']
         };
     } catch (error) {
         alert(error.message);
         return null;
     }
 }
+
 
 async function calculateProfit() {
     try {
@@ -35,10 +35,10 @@ async function calculateProfit() {
         const rates = await fetchExchangeRates('USD');
         if (!rates) return;
 
-        const pairRate = rates.pairRate;
         const usdJpyRate = rates.usdJpyRate;
+        const usdEurRate = rates.usdEurRate;
 
-        if (isNaN(pairRate) || isNaN(usdJpyRate)) {
+        if (isNaN(usdJpyRate) || isNaN(usdEurRate)) {
             alert('有効な為替レートを取得できませんでした。');
             return;
         }
@@ -51,10 +51,14 @@ async function calculateProfit() {
 
         // 利益額 (JPY) を計算
         let profit;
-        if (currencyPair.endsWith("JPY")) {
-            profit = pips * 0.01 * initialLot * lotPerCurrency; // 円が絡む通貨ペアの場合
+        if (currencyPair === "USDJPY") {
+            profit = pips * 0.01 * initialLot * lotPerCurrency; // 円が絡む場合
+        } else if (currencyPair === "EURUSD") {
+            // EURUSDをUSDJPYでJPY換算
+            const jpyProfitPerPip = 0.0001 * lotPerCurrency * usdJpyRate;
+            profit = pips * initialLot * jpyProfitPerPip;
         } else {
-            profit = pips * 0.0001 * initialLot * lotPerCurrency; // 円が絡まない通貨ペアの場合
+            profit = pips * 0.0001 * initialLot * lotPerCurrency * usdJpyRate; // その他通貨ペア
         }
 
         // 結果を表示

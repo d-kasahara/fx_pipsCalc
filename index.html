@@ -3,45 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>通貨ペア利益計算ツール</title>
+    <title>FX複利運用計算シミュレータ</title>
     <link rel="stylesheet" href="styles.css">
     <script src="script.js" defer></script>
 </head>
 <body>
-    <h1>通貨ペア利益計算ツール</h1>
-    <form onsubmit="event.preventDefault(); calculateProfit();">
-        <label for="currency_pair">通貨ペア:</label>
-        <select id="currency_pair" required>
-            <option value="USDJPY">USDJPY</option>
-            <option value="EURUSD">EURUSD</option>
-            <option value="GBPUSD">GBPUSD</option>
-            <option value="AUDUSD">AUDUSD</option>
-            <option value="NZDUSD">NZDUSD</option>
-        </select>
+    <h1>FX複利運用計算シミュレータ</h1>
 
-        <label for="initial_funds">初期資金 (JPY):</label>
-        <input type="number" id="initial_funds" required><br>
+    <div class="form-container">
+        <div class="form-row">
+            <label>ブローカー</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="broker_type" value="domestic" checked>
+                    <span class="radio-text">国内<span class="unit-hint">1枚 = 1万通貨</span></span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="broker_type" value="overseas">
+                    <span class="radio-text">海外<span class="unit-hint">1枚 = 10万通貨</span></span>
+                </label>
+            </div>
+        </div>
 
-        <label for="leverage">レバレッジ:</label>
-        <input type="number" id="leverage" required><br>
+        <div class="form-row">
+            <label for="currency_pair">通貨ペア</label>
+            <select id="currency_pair">
+                <option value="USDJPY">USDJPY</option>
+                <option value="EURJPY">EURJPY</option>
+                <option value="GBPJPY">GBPJPY</option>
+                <option value="AUDJPY">AUDJPY</option>
+                <option value="NZDJPY">NZDJPY</option>
+                <option value="EURUSD">EURUSD</option>
+                <option value="GBPUSD">GBPUSD</option>
+                <option value="AUDUSD">AUDUSD</option>
+            </select>
+        </div>
 
-        <label for="pips">獲得pips:</label>
-        <input type="number" id="pips" required><br>
+        <div class="form-row">
+            <label for="initial_funds">当初資金</label>
+            <input type="number" id="initial_funds" placeholder="100000" min="1">
+            <span class="unit">円</span>
+        </div>
 
-        <label for="lot_limit">ロット上限:</label>
-        <input type="number" id="lot_limit" required><br>
+        <div class="form-row">
+            <label for="leverage">レバレッジ</label>
+            <input type="number" id="leverage" placeholder="25" min="1" max="1000">
+            <span class="unit">倍</span>
+        </div>
 
-        <label for="lot_per_currency">ロット単位 (通貨):</label>
-        <input type="number" id="lot_per_currency" required><br>
+        <div class="form-row">
+            <label for="pips">1日の獲得</label>
+            <input type="number" id="pips" placeholder="10" min="0.1" step="0.1">
+            <span class="unit">pips</span>
+        </div>
 
-        <button type="submit">計算する</button>
-    </form>
+        <div class="form-row">
+            <label for="lot_limit">枚数上限</label>
+            <input type="number" id="lot_limit" placeholder="100" min="0.01" step="0.01">
+            <span class="unit">枚</span>
+        </div>
 
-    <div class="results">
-        <h2>計算結果</h2>
-        <p id="trading_volume">取引量 (USD): -</p>
-        <p id="initial_lot">初回ロット: -</p>
-        <p id="profit">利益額 (JPY): -</p>
+        <button id="calc-btn" onclick="simulate()">計算する</button>
+    </div>
+
+    <div id="results" class="results hidden">
+        <h2>シミュレート結果</h2>
+        <p id="rate_info" class="rate-info"></p>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>日数</th>
+                        <th>枚数</th>
+                        <th>利益</th>
+                        <th>資金</th>
+                    </tr>
+                </thead>
+                <tbody id="result_body"></tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>

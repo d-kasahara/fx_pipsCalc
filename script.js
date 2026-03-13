@@ -6,11 +6,17 @@ const BROKER_UNIT = {
     overseas: 100000,  // 海外: 1枚 = 10万通貨
 };
 
+// 貴金属ペアの仕様（ブローカー種別に関わらず固定）
+const METAL_CONFIG = {
+    XAUUSD: { unitSize: 100,  pipSize: 0.01  }, // 金: 1lot=100oz, 1pip=0.01USD
+    XAGUSD: { unitSize: 5000, pipSize: 0.001 }, // 銀: 1lot=5000oz, 1pip=0.001USD
+};
+
 // USD建てレートを取得し、必要なクロスレートを返す
 async function fetchRates() {
     try {
         const res = await fetch(
-            `https://api.exchangerate.host/live?access_key=${API_KEY}&source=USD&currencies=JPY,EUR,GBP,AUD,NZD`
+            `https://api.exchangerate.host/live?access_key=${API_KEY}&source=USD&currencies=JPY,EUR,GBP,AUD,NZD,XAU,XAG`
         );
         if (!res.ok) throw new Error('APIレスポンスエラー');
         const data = await res.json();
@@ -25,6 +31,8 @@ async function fetchRates() {
             USDGBP: 0.7880,
             USDAUD: 1.5300,
             USDNZD: 1.6300,
+            USDXAU: 0.000377, // 金: 約2650 USD/oz
+            USDXAG: 0.0333,   // 銀: 約30 USD/oz
         };
     }
 }
@@ -41,6 +49,8 @@ function getPairRate(pair, quotes) {
         case 'EURUSD': return 1 / quotes['USDEUR'];
         case 'GBPUSD': return 1 / quotes['USDGBP'];
         case 'AUDUSD': return 1 / quotes['USDAUD'];
+        case 'XAUUSD': return 1 / quotes['USDXAU']; // 金価格 (USD/oz)
+        case 'XAGUSD': return 1 / quotes['USDXAG']; // 銀価格 (USD/oz)
         default: return usdJpy;
     }
 }
@@ -48,6 +58,11 @@ function getPairRate(pair, quotes) {
 // 1pip・1枚あたりの利益(JPY)
 function pipValueJpy(pair, unitSize, quotes) {
     const usdJpy = quotes['USDJPY'];
+    const metal = METAL_CONFIG[pair];
+    if (metal) {
+        // 貴金属: pipSize × lotSize × USDJPY
+        return metal.pipSize * metal.unitSize * usdJpy;
+    }
     if (pair.endsWith('JPY')) {
         // JPY建て: 1pip = 0.01 JPY/通貨
         return 0.01 * unitSize;
@@ -82,8 +97,9 @@ function formatJpy(amount) {
 
 // シミュレーション実行(30日分)
 function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, brokerType, quotes) {
-    const unitSize = BROKER_UNIT[brokerType];
-    const floorFn = brokerType === 'overseas' ? floorHundredth : floorTenth;
+    const metal = METAL_CONFIG[pair];
+    const unitSize = metal ? metal.unitSize : BROKER_UNIT[brokerType];
+    const floorFn = (metal || brokerType === 'overseas') ? floorHundredth : floorTenth;
     const results = [];
     let funds = initialFunds;
     const pipVal = pipValueJpy(pair, unitSize, quotes);
@@ -95,7 +111,7 @@ function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, broke
             // 必要証拠金 = レート × 単位 / レバレッジ
             lots = floorFn(funds * leverage / (rate * unitSize));
         } else {
-            // USD建て: JPY換算で証拠金計算
+            // USD建て（貴金属含む）: JPY換算で証拠金計算
             lots = floorFn(funds * leverage / (rate * unitSize * usdJpy));
         }
         lots = Math.min(lots, lotLimit);

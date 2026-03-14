@@ -25,6 +25,7 @@ h1 {
 /* メインレイアウト（横並び） */
 .main-layout {
     display: flex;
+    justify-content: center;
     gap: 32px;
     align-items: flex-start;
     width: 100%;
@@ -170,14 +171,18 @@ h1 {
 .results h2 {
     font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     color: #222;
+}
+
+.rate-info + .table-wrapper {
+    margin-top: 0;
 }
 
 .rate-info {
     font-size: 0.85rem;
     color: #555;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .rate-info strong {

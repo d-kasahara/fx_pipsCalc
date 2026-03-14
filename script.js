@@ -125,6 +125,47 @@ function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, broke
     return results;
 }
 
+// フォームの入力値をlocalStorageに保存
+const STORAGE_KEY = 'fx_pipsCalc_form';
+const FORM_FIELDS = ['currency_pair', 'initial_funds', 'leverage', 'pips', 'lot_limit'];
+
+function saveFormValues() {
+    const data = {};
+    FORM_FIELDS.forEach(id => {
+        data[id] = document.getElementById(id).value;
+    });
+    data.broker_type = document.querySelector('input[name="broker_type"]:checked').value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function restoreFormValues() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    try {
+        const data = JSON.parse(saved);
+        FORM_FIELDS.forEach(id => {
+            if (data[id] !== undefined) document.getElementById(id).value = data[id];
+        });
+        if (data.broker_type) {
+            const radio = document.querySelector(`input[name="broker_type"][value="${data.broker_type}"]`);
+            if (radio) radio.checked = true;
+        }
+    } catch (e) {
+        // 保存データが壊れていたら無視
+    }
+}
+
+// ページ読み込み時に復元、入力変更時に保存
+document.addEventListener('DOMContentLoaded', () => {
+    restoreFormValues();
+    FORM_FIELDS.forEach(id => {
+        document.getElementById(id).addEventListener('input', saveFormValues);
+    });
+    document.querySelectorAll('input[name="broker_type"]').forEach(radio => {
+        radio.addEventListener('change', saveFormValues);
+    });
+});
+
 async function simulate() {
     const btn = document.getElementById('calc-btn');
     btn.disabled = true;

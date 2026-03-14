@@ -163,7 +163,6 @@ async function simulate() {
         `).join('');
 
         document.getElementById('results').classList.remove('hidden');
-        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 
     } catch (e) {
         alert('エラーが発生しました: ' + e.message);

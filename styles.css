@@ -22,14 +22,13 @@ h1 {
     text-align: center;
 }
 
-/* メインレイアウト（横並び） */
+/* メインレイアウト */
 .main-layout {
     display: flex;
-    justify-content: center;
-    gap: 32px;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    max-width: 1200px;
+    max-width: 680px;
 }
 
 /* フォームコンテナ */
@@ -38,8 +37,7 @@ h1 {
     border: 1px solid #e0e0e0;
     border-radius: 6px;
     padding: 0;
-    width: 480px;
-    min-width: 400px;
+    width: 100%;
     overflow: hidden;
 }
 
@@ -160,8 +158,8 @@ h1 {
 
 /* 結果エリア */
 .results {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
+    margin-top: 32px;
 }
 
 .results.hidden {
@@ -232,22 +230,3 @@ tbody tr:hover {
     background: #f0f7ff;
 }
 
-/* レスポンシブ：狭い画面では縦並び */
-@media (max-width: 900px) {
-    .main-layout {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .form-container {
-        width: 100%;
-        min-width: 0;
-        max-width: 680px;
-    }
-
-    .results {
-        width: 100%;
-        max-width: 680px;
-        margin-top: 32px;
-    }
-}

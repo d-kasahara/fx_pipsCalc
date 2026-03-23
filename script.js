@@ -1,4 +1,5 @@
-const API_KEY = '7c489c93947d3e1bd16d63b86906201d';
+// Open Exchange Rates API
+const OXR_APP_ID = 'b8d7c99f6fff41b483a2df35146658b3';
 
 // ブローカー種別ごとの1枚あたりの通貨数
 const BROKER_UNIT = {
@@ -12,32 +13,39 @@ const METAL_CONFIG = {
     XAGUSD: { unitSize: 5000, pipSize: 0.001 }, // 銀: 1lot=5000oz, 1pip=0.001USD
 };
 
-// USD建てレートを取得し、必要なクロスレートを返す
+// 全レート取得（Open Exchange Rates: USDベース）
 async function fetchRates() {
     try {
         const res = await fetch(
-            `https://api.exchangerate.host/live?access_key=${API_KEY}&source=USD&currencies=JPY,EUR,GBP,AUD,NZD,XAU,XAG`
+            `https://openexchangerates.org/api/latest.json?app_id=${OXR_APP_ID}&symbols=JPY,EUR,GBP,AUD,NZD,XAU,XAG`
         );
-        if (!res.ok) throw new Error('APIレスポンスエラー');
+        if (!res.ok) throw new Error('OXR APIレスポンスエラー');
         const data = await res.json();
-        if (!data.quotes || !data.quotes['USDJPY']) throw new Error('レートデータ不足');
-        return data.quotes; // 例: { USDJPY: 150, USDEUR: 0.92, USDGBP: 0.79, ... }
+        const r = data.rates;
+        return {
+            USDJPY: r.JPY,
+            USDEUR: r.EUR,
+            USDGBP: r.GBP,
+            USDAUD: r.AUD,
+            USDNZD: r.NZD,
+            XAUUSD: 1 / r.XAU,
+            XAGUSD: 1 / r.XAG,
+        };
     } catch (e) {
-        // フォールバック: 固定レート
         console.warn('レート取得失敗、フォールバックを使用:', e.message);
         return {
             USDJPY: 149.50,
-            USDEUR: 0.9200,
-            USDGBP: 0.7880,
-            USDAUD: 1.5300,
-            USDNZD: 1.6300,
-            USDXAU: 0.000377, // 金: 約2650 USD/oz
-            USDXAG: 0.0333,   // 銀: 約30 USD/oz
+            USDEUR: 0.8660,
+            USDGBP: 0.7490,
+            USDAUD: 1.4240,
+            USDNZD: 1.7130,
+            XAUUSD: 3000,
+            XAGUSD: 33,
         };
     }
 }
 
-// 通貨ペアのレート(1単位目通貨 = ? 2単位目通貨)を計算
+// 通貨ペアのレートを返す
 function getPairRate(pair, quotes) {
     const usdJpy = quotes['USDJPY'];
     switch (pair) {
@@ -49,8 +57,8 @@ function getPairRate(pair, quotes) {
         case 'EURUSD': return 1 / quotes['USDEUR'];
         case 'GBPUSD': return 1 / quotes['USDGBP'];
         case 'AUDUSD': return 1 / quotes['USDAUD'];
-        case 'XAUUSD': return 1 / quotes['USDXAU']; // 金価格 (USD/oz)
-        case 'XAGUSD': return 1 / quotes['USDXAG']; // 銀価格 (USD/oz)
+        case 'XAUUSD': return quotes['XAUUSD'];
+        case 'XAGUSD': return quotes['XAGUSD'];
         default: return usdJpy;
     }
 }
@@ -98,24 +106,21 @@ function formatJpy(amount) {
 }
 
 // 全損ライン（資金がゼロになる逆行幅）を計算
+// レバレッジとレートのみで決まる（資金額に依存しない）
 // FX: pips数、貴金属: USD変動幅
-function calcBustLine(pair, rate, initialFunds, leverage, brokerType, quotes) {
+function calcBustLine(pair, rate, leverage) {
     const metal = METAL_CONFIG[pair];
-    const unitSize = metal ? metal.unitSize : BROKER_UNIT[brokerType];
-    const floorFn = (metal || brokerType === 'overseas') ? floorHundredth : floorTenth;
-    const usdJpy = quotes['USDJPY'];
-
-    let lots;
-    if (pair.endsWith('JPY')) {
-        lots = floorFn(initialFunds * leverage / (rate * unitSize));
-    } else {
-        lots = floorFn(initialFunds * leverage / (rate * unitSize * usdJpy));
+    if (metal) {
+        // 貴金属: レート ÷ レバレッジ = 全損までのUSD変動幅
+        return rate / leverage;
     }
-    if (lots <= 0) return null;
-
-    const profitPer = unitProfitJpy(pair, unitSize, quotes);
-    // 資金 ÷ (枚数 × 1単位あたり利益) = 全損までの逆行幅
-    return initialFunds / (lots * profitPer);
+    if (pair.endsWith('JPY')) {
+        // JPY建て: (レート / レバレッジ) / 0.01 = pips数
+        return rate / leverage / 0.01;
+    } else {
+        // USD建て: (レート / レバレッジ) / 0.0001 = pips数
+        return rate / leverage / 0.0001;
+    }
 }
 
 // シミュレーション実行(30日分)
@@ -249,7 +254,7 @@ async function simulate() {
             `計算に使用した <strong>${pair}</strong> のレート ＝ ${rate.toFixed(2)}`;
 
         // 全損ライン表示
-        const bustLine = calcBustLine(pair, rate, initialFunds, leverage, brokerType, quotes);
+        const bustLine = calcBustLine(pair, rate, leverage);
         const bustEl = document.getElementById('bust_line');
         if (bustLine !== null) {
             const isMetal = !!METAL_CONFIG[pair];

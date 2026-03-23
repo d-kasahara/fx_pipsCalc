@@ -97,9 +97,10 @@ h1 {
 /* ラジオボタングループ */
 .radio-group {
     display: flex;
-    gap: 32px;
-    padding: 0 12px;
+    gap: 20px;
+    padding: 8px 12px;
     flex-wrap: wrap;
+    flex: 1;
 }
 
 .radio-label {
@@ -109,6 +110,23 @@ h1 {
     font-size: 0.95rem;
     cursor: pointer;
     color: #444;
+}
+
+@media (max-width: 480px) {
+    .form-row:has(.radio-group) {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-row:has(.radio-group) label:first-child {
+        padding-top: 12px;
+        padding-bottom: 4px;
+    }
+
+    .radio-group {
+        padding: 4px 16px 12px;
+        gap: 16px;
+    }
 }
 
 .radio-label input[type="radio"] {
@@ -130,6 +148,12 @@ h1 {
     font-size: 0.75rem;
     color: #aaa;
     white-space: nowrap;
+}
+
+.broker-note {
+    font-size: 0.7rem;
+    color: #bbb;
+    width: 100%;
 }
 
 /* 計算ボタン */
@@ -180,7 +204,17 @@ h1 {
 .rate-info {
     font-size: 0.85rem;
     color: #555;
+    margin-bottom: 4px;
+}
+
+.bust-line {
+    font-size: 0.85rem;
+    color: #c44;
     margin-bottom: 8px;
+}
+
+.bust-line strong {
+    color: #a00;
 }
 
 .rate-info strong {

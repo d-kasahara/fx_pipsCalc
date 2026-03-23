@@ -55,13 +55,15 @@ function getPairRate(pair, quotes) {
     }
 }
 
-// 1pip・1枚あたりの利益(JPY)
-function pipValueJpy(pair, unitSize, quotes) {
+// 1単位あたりの利益(JPY)
+// FX通貨ペア: 1pip あたりの利益
+// 貴金属: 1USD変動あたりの利益
+function unitProfitJpy(pair, unitSize, quotes) {
     const usdJpy = quotes['USDJPY'];
     const metal = METAL_CONFIG[pair];
     if (metal) {
-        // 貴金属: pipSize × lotSize × USDJPY
-        return metal.pipSize * metal.unitSize * usdJpy;
+        // 貴金属: $1変動 × ロットサイズ × USDJPY
+        return metal.unitSize * usdJpy;
     }
     if (pair.endsWith('JPY')) {
         // JPY建て: 1pip = 0.01 JPY/通貨
@@ -82,10 +84,10 @@ function floorHundredth(n) {
     return Math.floor(n * 100) / 100;
 }
 
-// 枚数を表示用にフォーマット
+// 枚数/ロット数を表示用にフォーマット
 function formatLots(lots, brokerType) {
     if (brokerType === 'overseas') {
-        return lots.toFixed(2) + ' 枚';
+        return lots.toFixed(2) + ' lot';
     }
     return (lots % 1 === 0 ? lots.toFixed(0) : lots.toFixed(1)) + ' 枚';
 }
@@ -95,6 +97,27 @@ function formatJpy(amount) {
     return '¥ ' + Math.round(amount).toLocaleString('ja-JP');
 }
 
+// 全損ライン（資金がゼロになる逆行幅）を計算
+// FX: pips数、貴金属: USD変動幅
+function calcBustLine(pair, rate, initialFunds, leverage, brokerType, quotes) {
+    const metal = METAL_CONFIG[pair];
+    const unitSize = metal ? metal.unitSize : BROKER_UNIT[brokerType];
+    const floorFn = (metal || brokerType === 'overseas') ? floorHundredth : floorTenth;
+    const usdJpy = quotes['USDJPY'];
+
+    let lots;
+    if (pair.endsWith('JPY')) {
+        lots = floorFn(initialFunds * leverage / (rate * unitSize));
+    } else {
+        lots = floorFn(initialFunds * leverage / (rate * unitSize * usdJpy));
+    }
+    if (lots <= 0) return null;
+
+    const profitPer = unitProfitJpy(pair, unitSize, quotes);
+    // 資金 ÷ (枚数 × 1単位あたり利益) = 全損までの逆行幅
+    return initialFunds / (lots * profitPer);
+}
+
 // シミュレーション実行(30日分)
 function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, brokerType, quotes) {
     const metal = METAL_CONFIG[pair];
@@ -102,7 +125,7 @@ function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, broke
     const floorFn = (metal || brokerType === 'overseas') ? floorHundredth : floorTenth;
     const results = [];
     let funds = initialFunds;
-    const pipVal = pipValueJpy(pair, unitSize, quotes);
+    const profitPerUnit = unitProfitJpy(pair, unitSize, quotes);
     const usdJpy = quotes['USDJPY'];
 
     for (let day = 1; day <= 30; day++) {
@@ -116,7 +139,8 @@ function runSimulation(pair, rate, initialFunds, leverage, pips, lotLimit, broke
         }
         lots = Math.min(lots, lotLimit);
 
-        const profit = Math.round(lots * pips * pipVal);
+        // pips: FX通貨ペアはpips値、貴金属はUSD変動幅
+        const profit = Math.round(lots * pips * profitPerUnit);
         funds = funds + profit;
 
         results.push({ day, lots, profit, funds });
@@ -155,14 +179,45 @@ function restoreFormValues() {
     }
 }
 
+// ブローカー変更時に枚数/lot表記を切り替え
+function updateBrokerLabels() {
+    const brokerType = document.querySelector('input[name="broker_type"]:checked').value;
+    const isOverseas = brokerType === 'overseas';
+    document.getElementById('lot_limit_label').textContent = isOverseas ? 'lot上限' : '枚数上限';
+    document.getElementById('lot_limit_unit').textContent = isOverseas ? 'lot' : '枚';
+    document.getElementById('lots_header').textContent = isOverseas ? 'lot数' : '枚数';
+}
+
+// 通貨ペア変更時に単位ラベルを切り替え
+function updatePipsLabel() {
+    const pair = document.getElementById('currency_pair').value;
+    const unitEl = document.getElementById('pips_unit');
+    const input = document.getElementById('pips');
+    if (METAL_CONFIG[pair]) {
+        unitEl.textContent = 'USD';
+        input.placeholder = '5';
+        input.step = '0.1';
+    } else {
+        unitEl.textContent = 'pips';
+        input.placeholder = '10';
+        input.step = '0.1';
+    }
+}
+
 // ページ読み込み時に復元、入力変更時に保存
 document.addEventListener('DOMContentLoaded', () => {
     restoreFormValues();
+    updatePipsLabel();
+    updateBrokerLabels();
     FORM_FIELDS.forEach(id => {
         document.getElementById(id).addEventListener('input', saveFormValues);
     });
+    document.getElementById('currency_pair').addEventListener('change', updatePipsLabel);
     document.querySelectorAll('input[name="broker_type"]').forEach(radio => {
-        radio.addEventListener('change', saveFormValues);
+        radio.addEventListener('change', () => {
+            saveFormValues();
+            updateBrokerLabels();
+        });
     });
 });
 
@@ -192,6 +247,18 @@ async function simulate() {
         // 結果表示
         document.getElementById('rate_info').innerHTML =
             `計算に使用した <strong>${pair}</strong> のレート ＝ ${rate.toFixed(2)}`;
+
+        // 全損ライン表示
+        const bustLine = calcBustLine(pair, rate, initialFunds, leverage, brokerType, quotes);
+        const bustEl = document.getElementById('bust_line');
+        if (bustLine !== null) {
+            const isMetal = !!METAL_CONFIG[pair];
+            const unitLabel = isMetal ? 'USD' : 'pips';
+            const bustValue = isMetal ? bustLine.toFixed(2) : bustLine.toFixed(1);
+            bustEl.innerHTML = `⚠ 全損ライン: 約 <strong>${bustValue} ${unitLabel}</strong> 逆行で資金消失`;
+        } else {
+            bustEl.innerHTML = '';
+        }
 
         const tbody = document.getElementById('result_body');
         tbody.innerHTML = rows.map(r => `
